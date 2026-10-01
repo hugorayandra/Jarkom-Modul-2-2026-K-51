@@ -11,161 +11,377 @@
 |  1  | Arrumanta Ekna Luhkinasih | 5027251044 |
 |  2  | Muhammad Hugo Rayandra E   | 5027251076 |
 
----
+# Daftar Isi
 
-# 1. Pendahuluan
-
-## 1.1 Latar Belakang
-
-Praktikum Modul 2 membahas pembangunan sebuah jaringan terisolasi bernama **The Mesh**. Jaringan terdiri atas beberapa entitas yang memiliki fungsi berbeda, mulai dari router, client, DNS server, reverse proxy, web server statis, hingga web server dinamis.
-
-Praktikum dilakukan menggunakan GNS3 dengan beberapa node berbasis Linux. Setiap node diberikan alamat IP dan hostname sesuai dengan fungsi yang telah ditentukan. Setelah jaringan terbentuk, dilakukan konfigurasi routing, NAT, DNS authoritative dan slave, web server, reverse proxy, authentication, logging, benchmark, hingga persistence service.
-
-Konfigurasi DNS menjadi salah satu fondasi utama karena sebagian besar layanan berikutnya diakses menggunakan hostname, bukan secara langsung menggunakan alamat IP.
-
-## 1.2 Tujuan
-
-Praktikum ini bertujuan untuk:
-
-1. Membangun topologi jaringan The Mesh.
-2. Mengonfigurasi alamat IP dan routing antar jaringan.
-3. Mengaktifkan NAT pada router utama.
-4. Membangun DNS authoritative pada prab dan DNS slave pada tedd.
-5. Melakukan zone transfer.
-6. Membuat hostname dan record DNS untuk seluruh entitas.
-7. Mengonfigurasi web server statis dan dinamis.
-8. Mengimplementasikan reverse proxy menggunakan Apache dan Nginx.
-9. Menerapkan authentication dan redirect.
-10. Memastikan client IP dapat diteruskan dan tercatat pada access log.
-11. Melakukan stress test menggunakan ApacheBench.
-12. Menguji TXT record, TTL/cache DNS, CNAME, dan persistence service.
-
----
-
-# 2. Topologi dan Pembagian Entitas
-
-The Mesh terdiri dari beberapa kelompok entitas dengan fungsi sebagai berikut.
-
-| Entitas | Fungsi                         |
-| ------- | ------------------------------ |
-| rootkit | Router/Gateway utama           |
-| alpha   | Client sayap kiri              |
-| beta    | Client sayap kiri              |
-| gamma   | Client sayap kiri              |
-| delta   | Client sayap kanan             |
-| epsilon | Client sayap kanan             |
-| prab    | DNS Master / NS1               |
-| tedd    | DNS Slave / NS2                |
-| abbey   | Reverse Proxy untuk area core  |
-| penny   | Reverse Proxy untuk area vault |
-| obladi  | Web statis                     |
-| desmond | Web statis                     |
-| oblada  | Web dinamis                    |
-| molly   | Web dinamis                    |
-
-Domain yang digunakan dalam praktikum adalah:
-
-**K-51.com**
+- [1. Deskripsi Praktikum](#1-deskripsi-praktikum)
+- [2. Topologi dan Arsitektur](#2-topologi-dan-arsitektur)
+- [3. Glosarium Entitas](#3-glosarium-entitas)
+- [4. Struktur Repository](#4-struktur-repository)
+- [5. Persiapan Environment](#5-persiapan-environment)
+- [6. Konfigurasi Jaringan](#6-konfigurasi-jaringan)
+  - [Soal 1 — IP Address dan Gateway](#soal-1--ip-address-dan-gateway)
+  - [Soal 2 — WAN dan NAT](#soal-2--wan-dan-nat)
+  - [Soal 3 — Routing Internal dan Resolver](#soal-3--routing-internal-dan-resolver)
+- [7. Konfigurasi DNS](#7-konfigurasi-dns)
+  - [Soal 4 — DNS Master](#soal-4--dns-master)
+  - [Soal 5 — Hostname](#soal-5--hostname)
+  - [Soal 6 — Zone Transfer](#soal-6--zone-transfer)
+  - [Soal 7 — A Record dan CNAME](#soal-7--a-record-dan-cname)
+  - [Soal 8 — Reverse DNS](#soal-8--reverse-dns)
+- [8. Web Server](#8-web-server)
+  - [Soal 9 — Apache Static Web](#soal-9--apache-static-web)
+  - [Soal 10 — Nginx PHP-FPM](#soal-10--nginx-php-fpm)
+- [9. Reverse Proxy](#9-reverse-proxy)
+  - [Soal 11 — Reverse Proxy](#soal-11--reverse-proxy)
+  - [Soal 12 — Basic Authentication](#soal-12--basic-authentication)
+  - [Soal 13 — HTTP Redirect](#soal-13--http-redirect)
+  - [Soal 14 — Client IP Logging](#soal-14--client-ip-logging)
+  - [Soal 15 — Path Proxy](#soal-15--path-proxy)
+- [10. Testing](#10-testing)
+  - [Soal 16 — ApacheBench](#soal-16--apachebench)
+  - [Soal 17 — TXT Record](#soal-17--txt-record)
+  - [Soal 18 — DNS TTL](#soal-18--dns-ttl)
+  - [Soal 19 — External CNAME](#soal-19--external-cname)
+- [11. Persistence](#11-persistence)
+  - [Soal 20 — Autostart dan Persistence](#soal-20--autostart-dan-persistence)
+- [12. Alur Keseluruhan](#12-alur-keseluruhan)
+- [13. Verifikasi Akhir](#13-verifikasi-akhir)
+- [14. Troubleshooting](#14-troubleshooting)
+- [15. Persiapan Demo](#15-persiapan-demo)
+- [16. Checklist](#16-checklist)
 
 ---
 
-# 3. Konfigurasi IP Address
+# 1. Deskripsi Praktikum
 
-Pembagian alamat IP yang digunakan pada The Mesh adalah sebagai berikut.
+Praktikum Modul 2 membangun sebuah jaringan terisolasi bernama **The Mesh**.
 
-| Host    | IP Address |
-| ------- | ---------- |
-| rootkit | 10.89.5.1  |
-| alpha   | 10.89.1.10 |
-| beta    | 10.89.1.11 |
-| gamma   | 10.89.1.12 |
-| delta   | 10.89.2.10 |
-| epsilon | 10.89.2.11 |
-| abbey   | 10.89.3.10 |
-| penny   | 10.89.4.10 |
-| prab    | 10.89.5.10 |
-| tedd    | 10.89.5.11 |
-| obladi  | 10.89.5.12 |
-| desmond | 10.89.5.13 |
-| oblada  | 10.89.5.14 |
-| molly   | 10.89.5.15 |
+Pada topologi ini terdapat:
 
-Konfigurasi dilakukan pada masing-masing node sesuai dengan subnet yang telah ditentukan.
+- `rootkit` sebagai router/gateway utama
+- `alpha`, `beta`, `gamma` sebagai client sayap kiri
+- `delta`, `epsilon` sebagai client sayap kanan
+- `prab`, `tedd` sebagai DNS server
+- `abbey`, `penny` sebagai reverse proxy
+- `obladi`, `desmond` sebagai web server statis
+- `oblada`, `molly` sebagai web server dinamis
 
-**Bukti:**
+Praktikum mencakup:
 
-> [Screenshot konfigurasi IP seluruh node]
+1. Konfigurasi IP
+2. Routing
+3. NAT
+4. DNS authoritative
+5. DNS master-slave
+6. Zone transfer
+7. Reverse DNS
+8. Apache
+9. Nginx
+10. PHP-FPM
+11. Reverse proxy
+12. Basic authentication
+13. HTTP redirect
+14. Access logging
+15. ApacheBench
+16. DNS TXT
+17. DNS TTL dan caching
+18. CNAME
+19. Persistence dan autostart
 
 ---
 
-# 4. Konfigurasi DNS Authoritative dan Slave
+# 2. Topologi dan Arsitektur
 
-Pada node **prab** dibangun DNS authoritative untuk domain **K-51.com**. DNS prab memiliki SOA yang menunjuk ke `prab.K-51.com` serta NS record untuk `prab.K-51.com` dan `tedd.K-51.com`.
-
-Record utama yang digunakan antara lain:
+## 2.1 Gambaran Umum
 
 ```text
-K-51.com.       IN A     10.89.4.10
-prab.K-51.com.  IN A     10.89.5.10
-tedd.K-51.com.  IN A     10.89.5.11
-```
+                           INTERNET
+                              |
+                              |
+                             WAN
+                              |
+                       +--------------+
+                       |    rootkit   |
+                       |    ROUTER    |
+                       +--------------+
+                         /    |    \
+                        /     |     \
+                       /      |      \
+                  Network 1 Network 2 Network 3
+                     |        |        |
+                  Clients     DNS     Proxy
+                              |        |
+                           prab/tedd  |
+                                      |
+                              +-------+-------+
+                              |               |
+                            penny           abbey
+                           Apache           Nginx
+                              |               |
+                         +----+----+      +----+----+
+                         |         |      |         |
+                      obladi    desmond  oblada    molly
+                       STATIC     STATIC  DYNAMIC  DYNAMIC
 
-DNS pada prab juga dikonfigurasi agar melakukan notify dan mengizinkan zone transfer kepada tedd.
+3. Glosarium Entitas
+Host	Fungsi
+rootkit	Router sentral / gateway
+alpha	Client
+beta	Client
+gamma	Client
+delta	Client
+epsilon	Client
+prab	DNS Master
+tedd	DNS Slave
+penny	Apache Reverse Proxy
+abbey	Nginx Reverse Proxy
+obladi	Web Static
+desmond	Web Static
+oblada	Web Dynamic
+molly	Web Dynamic
 
-Pada node **tedd**, zona K-51.com dikonfigurasi sebagai slave dengan master:
 
-```text
-masters { 10.89.5.10; };
-```
+4. Informasi Addressing
+Isi bagian ini sesuai konfigurasi kelompok.
 
-Hasil pengujian DNS menunjukkan bahwa domain apex berhasil dijawab secara authoritative.
+4.1 Prefix Kelompok
+Prefix:
+10.89.x.x
+
+4.2 Tabel IP Address
+Host	Interface	IP Address	Prefix	Gateway
+rootkit	ethX	XX.XX.XX.XX	/XX	-
+alpha	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+beta	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+gamma	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+delta	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+epsilon	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+prab	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+tedd	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+abbey	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+penny	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+obladi	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+desmond	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+oblada	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+molly	eth0	XX.XX.XX.XX	/XX	XX.XX.XX.XX
+
+
+5. Struktur Repository
+Contoh struktur repository:
+.
+├── README.md
+│
+├── GNS3/
+│   └── project-files/
+│
+├── scripts/
+│   ├── rootkit/
+│   ├── prab/
+│   ├── tedd/
+│   ├── penny/
+│   ├── abbey/
+│   ├── obladi/
+│   ├── desmond/
+│   ├── oblada/
+│   └── molly/
+│
+├── configs/
+│   ├── dns/
+│   ├── apache/
+│   ├── nginx/
+│   └── network/
+│
+├── screenshots/
+│   ├── soal-01/
+│   ├── soal-02/
+│   ├── soal-03/
+│   ├── ...
+│   └── soal-20/
+│
+└── documentation/
+    ├── troubleshooting.md
+    └── demo-notes.md
+
+6. Persiapan Environment
+Praktikum menggunakan:
+- GNS3 Web/Client/VM
+- Docker image yang ditentukan praktikum
+- Alpine/Debian sesuai kebutuhan node
+- Wireshark jika diperlukan untuk observasi traffic
+Image yang digunakan:
+ardhptr21/alpinet:latest
+
+atau:
+ardhptr21/debinet:latest
+
+7. Konfigurasi Jaringan
+Soal 1 — IP Address dan Gateway
+Tujuan
+Menghubungkan rootkit dengan lima jaringan dan memberikan IP address serta default gateway kepada seluruh entitas.
+Konsep
+Konfigurasi yang dibutuhkan:
+IP Address
+Subnet
+Default Gateway
+Routing
+
+Alur
+Host
+  |
+  | packet
+  v
+Default Gateway
+  |
+  v
+rootkit
+  |
+  v
+Network tujuan
+
+Konfigurasi
+rootkit
+ip addr
+ip route
+
+Tambahkan konfigurasi interface sesuai topologi:
+# CONTOH
+ip addr add <IP>/<PREFIX> dev <INTERFACE>
+ip link set <INTERFACE> up
+
+Host
+ip addr
+ip route
+
+Set gateway:
+ip route add default via <GATEWAY>
+
+Verifikasi
+ip addr
+ip route
+
+Tes:
+ping <GATEWAY>
+ping <HOST-LAIN>
+
+Hasil
+- [ ] Semua interface aktif
+- [ ] Semua host mempunyai IP
+- [ ] Default gateway benar
+- [ ] Host dapat berkomunikasi
+Dokumentasi
+  
+Soal 2 — WAN dan NAT
+Tujuan
+Membuat jaringan internal dapat mengakses jaringan luar melalui rootkit.
+Konsep
+Internal Network
+       |
+       v
+    rootkit
+       |
+      NAT
+       |
+       v
+   WAN / Internet
+
+IP Forwarding
+Periksa:
+cat /proc/sys/net/ipv4/ip_forward
+
+Aktifkan jika diperlukan:
+sysctl -w net.ipv4.ip_forward=1
+
+NAT
+Konfigurasi NAT sesuai environment praktikum.
+Contoh konsep:
+iptables -t nat -A POSTROUTING -o <WAN_INTERFACE> -j MASQUERADE
+
+Verifikasi
+ip route
+
+Tes dari client:
+ping 192.168.122.1
+
+Hasil
+- [ ] WAN aktif
+- [ ] IP forwarding aktif
+- [ ] NAT aktif
+- [ ] Client dapat mengakses jaringan luar
+Dokumentasi
+ 
+Soal 3 — Routing Internal dan Resolver
+Tujuan
+Memastikan seluruh host dapat berkomunikasi dan resolver awal tersedia.
+Resolver Awal
+192.168.122.1
+
+Konfigurasi:
+cat /etc/resolv.conf
 
 Contoh:
+nameserver 192.168.122.1
 
-```text
-dig @10.89.5.10 K-51.com
+Verifikasi Routing
+ip route
+
+Tes:
+ping <HOST-LAIN>
+
+Verifikasi DNS
+nslookup google.com
 ```
 
-Hasil:
+atau:
+dig google.com
 
-```text
-status: NOERROR
-ANSWER: 1
+8. Konfigurasi DNS
+Soal 4 — DNS Master dan Slave
+Tujuan
+Membangun:
+prab = DNS Master
+tedd = DNS Slave
 
-K-51.com.    86400    IN    A    10.89.4.10
-```
+Zone:
+<xxxx>.com
 
-Pada tedd:
+Arsitektur
+             <xxxx>.com
+                  |
+          +-------+-------+
+          |               |
+        prab             tedd
+       MASTER            SLAVE
+          |
+          | Zone Transfer
+          v
+         tedd
 
-```text
-dig @10.89.5.11 K-51.com
-```
+Record yang diperlukan
+SOA
+<xxxx>.com. IN SOA prab.<xxxx>.com. ...
 
-Hasil juga menunjukkan:
+NS
+<xxxx>.com. IN NS prab.<xxxx>.com.
+<xxxx>.com. IN NS tedd.<xxxx>.com.
 
-```text
-status: NOERROR
-flags: qr aa rd ra
-```
+A
+prab.<xxxx>.com  -> <IP-PRAB>
+tedd.<xxxx>.com  -> <IP-TEDD>
+<xxxx>.com       -> <IP-PENNY>
 
-Hal tersebut menunjukkan bahwa tedd telah dapat menjawab query secara authoritative.
+Forwarder
+192.168.122.1
 
-**Bukti:**
+Verifikasi
+dig SOA <xxxx>.com
+dig NS <xxxx>.com
+dig A prab.<xxxx>.com
+dig A tedd.<xxxx>.com
 
-> [Screenshot konfigurasi prab]
-> [Screenshot konfigurasi tedd]
-> [Screenshot hasil dig dari prab]
-> [Screenshot hasil dig dari tedd]
-
----
-
-# 5. Konfigurasi Hostname Seluruh Entitas
-
-Seluruh node diberikan hostname sesuai dengan glosarium The Mesh.
-
-Hostname yang digunakan adalah:
-
-```text
+Soal 5 — Hostname
+Tujuan
+Memberikan hostname sesuai glosarium.
+Daftar Hostname
 rootkit
 alpha
 beta
@@ -180,687 +396,833 @@ obladi
 desmond
 oblada
 molly
-```
 
-Hostname diverifikasi menggunakan perintah:
-
-```bash
+Verifikasi
 hostname
-```
-
-dan:
-
-```bash
 hostnamectl
-```
 
-Setiap node juga memiliki record DNS sesuai hostname masing-masing.
+DNS
+Contoh:
+alpha.<xxxx>.com
+beta.<xxxx>.com
+gamma.<xxxx>.com
 
-**Bukti:**
+Soal 6 — Zone Transfer
+Tujuan
+Memastikan tedd mempunyai salinan zone terbaru dari prab.
+Konsep
+prab
+MASTER
+ |
+ | AXFR / IXFR
+ v
+tedd
+SLAVE
 
-> [Screenshot hostname beberapa node]
-> [Screenshot DNS record]
+Verifikasi SOA
+Pada prab:
+dig SOA <xxxx>.com
 
----
+Pada tedd:
+dig SOA <xxxx>.com
 
-# 6. Verifikasi Zone Transfer
+Serial harus sama:
+PRAB  : XXXXX
+TEDD  : XXXXX
 
-Zone transfer antara **prab sebagai master** dan **tedd sebagai slave** berhasil dilakukan.
+Hasil
+- [ ] Zone transfer berhasil
+- [ ] Serial master dan slave sama
+- [ ] Tedd authoritative
+Soal 7 — A Record dan CNAME
+A Record
+vault.<xxxx>.com
 
-Pada prab digunakan konfigurasi:
-
-```text
-allow-transfer {
-    10.89.5.11;
-};
-
-also-notify {
-    10.89.5.11;
-};
-```
-
-Pada tedd digunakan konfigurasi slave:
-
-```text
-zone "K-51.com" {
-    type slave;
-    file "/var/cache/bind/db.K-51.com";
-    masters { 10.89.5.10; };
-};
-```
-
-Serial SOA pada master dan slave digunakan untuk memastikan bahwa kedua server memiliki versi zona yang sama.
-
-Verifikasi dilakukan menggunakan:
-
-```bash
-dig @10.89.5.10 K-51.com SOA +short
-```
-
-dan:
-
-```bash
-dig @10.89.5.11 K-51.com SOA +short
-```
-
-Hasil menunjukkan serial SOA yang sama sehingga zona pada tedd telah tersinkronisasi dengan prab.
-
-**Bukti:**
-
-> [Screenshot SOA prab]
-> [Screenshot SOA tedd]
-
----
-
-# 7. Konfigurasi Record Vault, Core, dan CNAME
-
-Pada zona **K-51.com** ditambahkan record untuk area vault dan core.
-
-Area vault terdiri dari:
-
-```text
+mengarah ke:
 obladi
 desmond
-```
 
-Sedangkan area core terdiri dari:
+core.<xxxx>.com
 
-```text
+mengarah ke:
 oblada
 molly
-```
 
-Record DNS yang digunakan:
+CNAME
+www.<xxxx>.com
+        ↓
+penny.<xxxx>.com
 
-```text
-vault.K-51.com.    IN A    10.89.5.12
-vault.K-51.com.    IN A    10.89.5.13
+static.<xxxx>.com
+        ↓
+abbey.<xxxx>.com
 
-core.K-51.com.     IN A    10.89.5.14
-core.K-51.com.     IN A    10.89.5.15
-```
+Verifikasi
+dig A vault.<xxxx>.com
+dig A core.<xxxx>.com
+dig CNAME www.<xxxx>.com
+dig CNAME static.<xxxx>.com
 
-Kemudian dibuat CNAME:
+Soal 8 — Reverse DNS
+Tujuan
+Membuat:
+IP
+ ↓
+hostname
 
-```text
-www.K-51.com.      IN CNAME    penny.K-51.com.
-static.K-51.com.   IN CNAME    abbey.K-51.com.
-```
-
-Pengujian dilakukan dari client menggunakan:
-
-```bash
-dig @10.89.5.10 vault.K-51.com
-dig @10.89.5.10 core.K-51.com
-dig @10.89.5.10 www.K-51.com
-dig @10.89.5.10 static.K-51.com
-```
-
-Hasil query digunakan untuk memastikan hostname mengarah ke tujuan yang telah ditentukan.
-
-**Bukti:**
-
-> [Screenshot record vault]
-> [Screenshot record core]
-> [Screenshot CNAME]
-> [Screenshot hasil dig dari client]
-
----
-
-# 8. Reverse DNS
-
-Reverse DNS dikonfigurasi pada prab untuk segmen jaringan tempat gateway dan repository berada.
-
-Reverse zone digunakan untuk melakukan pemetaan:
-
-```text
-IP Address → Hostname
-```
-
-PTR record dibuat untuk hostname:
-
-```text
+menggunakan PTR.
+Target
 abbey
 penny
 obladi
 desmond
 oblada
 molly
-```
 
-Zona reverse kemudian ditarik oleh tedd sebagai slave.
-
-Pengujian dilakukan menggunakan:
-
-```bash
-dig -x 10.89.3.10
-dig -x 10.89.4.10
-dig -x 10.89.5.12
-dig -x 10.89.5.13
-```
-
-Hasil query diharapkan mengembalikan hostname yang sesuai.
-
-**Bukti:**
-
-> [Screenshot konfigurasi reverse zone prab]
-> [Screenshot reverse zone tedd]
-> [Screenshot dig -x]
-
----
-
-# 9. Web Server Statis
-
-Node **obladi** dan **desmond** digunakan sebagai web server statis menggunakan Apache.
-
-Directory:
-
-```text
-/arsip/
-```
-
-dikonfigurasi agar dapat menampilkan directory listing menggunakan fitur autoindex Apache.
-
-Pengujian dilakukan menggunakan hostname:
-
-```text
-http://vault.K-51.com/arsip/
-```
-
-Pengujian tidak dilakukan menggunakan IP secara langsung karena soal mewajibkan akses melalui hostname.
-
-**Bukti:**
-
-> [Screenshot konfigurasi Apache]
-> [Screenshot directory /arsip/]
-> [Screenshot browser]
-
----
-
-# 10. Web Server Dinamis
-
-Node **oblada** dan **molly** digunakan sebagai web server dinamis menggunakan Nginx dan PHP-FPM.
-
-Aplikasi menyediakan halaman:
-
-```text
-/
-```
-
-dan:
-
-```text
-/profil
-```
-
-URL `/profil` dikonfigurasi menggunakan rewrite sehingga tidak perlu menuliskan `.php`.
-
-Contoh akses:
-
-```text
-http://core.K-51.com/
-http://core.K-51.com/profil
-```
-
-Pengujian dilakukan menggunakan hostname.
-
-**Bukti:**
-
-> [Screenshot Nginx]
-> [Screenshot PHP-FPM]
-> [Screenshot halaman utama]
-> [Screenshot halaman /profil]
-
----
-
-# 11. Reverse Proxy Penny dan Abbey
-
-Node **penny** digunakan sebagai reverse proxy Apache menuju area vault:
-
-```text
-penny → obladi
-      → desmond
-```
-
-Sedangkan **abbey** menggunakan Nginx sebagai reverse proxy menuju area core:
-
-```text
-abbey → oblada
-      → molly
-```
-
-Header berikut diteruskan oleh reverse proxy:
-
-```text
-Host
-X-Real-IP
-```
-
-Konfigurasi ini memungkinkan backend mengetahui hostname yang digunakan client serta alamat IP asli client.
-
-Pengujian dilakukan dengan mengakses:
-
-```text
-www.K-51.com
-static.K-51.com
-```
-
-dan mengamati server backend yang menerima request.
-
-**Bukti:**
-
-> [Screenshot konfigurasi Penny]
-> [Screenshot konfigurasi Abbey]
-> [Screenshot backend Obladi/Desmond]
-> [Screenshot backend Oblada/Molly]
-
----
-
-# 12. Basic Authentication
-
-Pada node **penny**, path:
-
-```text
-/admin
-```
-
-diberikan perlindungan menggunakan Basic Authentication.
-
-Akses tanpa credential harus ditolak dan browser menampilkan permintaan username dan password.
-
-Pengujian dilakukan dengan credential yang telah ditentukan pada soal praktikum.
-
-Hasil pengujian menunjukkan bahwa endpoint `/admin` hanya dapat diakses setelah autentikasi berhasil.
-
-**Bukti:**
-
-> [Screenshot akses tanpa credential]
-> [Screenshot akses setelah authentication berhasil]
-
----
-
-# 13. Redirect Canonical Hostname
-
-Konfigurasi redirect dibuat agar setiap akses menuju gateway menggunakan hostname kanonik.
-
-Untuk Penny digunakan redirect permanen:
-
-```text
-301 → www.K-51.com
-```
-
-Sedangkan Abbey menggunakan redirect sementara:
-
-```text
-302 → static.K-51.com
-```
-
-Pengujian dilakukan menggunakan:
-
-```bash
-curl -I http://10.89.4.10
-curl -I http://penny.K-51.com
-curl -I http://10.89.3.10
-curl -I http://abbey.K-51.com
-```
-
-Header `Location` digunakan untuk memastikan tujuan redirect sesuai konfigurasi.
-
-**Bukti:**
-
-> [Screenshot curl status 301]
-> [Screenshot curl status 302]
-
----
-
-# 14. Access Log dan Client IP
-
-Reverse proxy dikonfigurasi agar meneruskan IP asli client melalui:
-
-```text
-X-Real-IP
-```
-
-Backend kemudian dikonfigurasi agar access log mencatat IP client asli, bukan alamat IP Penny atau Abbey.
-
-Pengujian dilakukan dengan mengakses layanan melalui reverse proxy kemudian memeriksa access log pada backend.
+Verifikasi
+dig -x <IP>
 
 Contoh:
+dig -x <IP-ABBEY>
 
-```bash
-tail -f /var/log/nginx/access.log
-```
+Hasil:
+<IP>
+ ↓
+abbey.<xxxx>.com
 
-atau:
+9. Web Server
+Soal 9 — Apache Static Web
+Target
+obladi
+desmond
 
-```bash
-tail -f /var/log/apache2/access.log
-```
+menggunakan:
+Apache
 
-Hasil pengujian menunjukkan alamat IP client dapat diteruskan sampai ke backend.
+Directory
+/arsip/
 
-**Bukti:**
+Tujuan
+Mengaktifkan:
+Directory Listing / Autoindex
 
-> [Screenshot request dari client]
-> [Screenshot access log backend]
+Verifikasi
+curl http://<hostname>/arsip/
 
----
+atau menggunakan browser.
+Checklist
+- [ ] Apache aktif
+- [ ] /arsip/ tersedia
+- [ ] Directory listing aktif
+- [ ] Akses menggunakan hostname
+- [ ] Obladi berhasil
+- [ ] Desmond berhasil
+Soal 10 — Nginx + PHP-FPM
+Target
+oblada
+molly
 
-# 15. Proxy Path Eternal dan Orion
+menggunakan:
+Nginx
+PHP-FPM
 
-Pada **penny** dibuat reverse proxy khusus untuk:
+Arsitektur
+Client
+  |
+  v
+Nginx
+  |
+  | FastCGI
+  v
+PHP-FPM
+  |
+  v
+PHP Application
 
-```text
-/eternal
-```
-
-yang mengarah ke:
-
-```text
-/var/www/eternal
-```
-
-Path tersebut mendukung rendering PHP.
-
-Pada **abbey** dibuat path:
-
-```text
-/orion
-```
-
-yang mengarah ke:
-
-```text
-/var/www/orion
-```
-
-Path `/orion` digunakan sebagai layanan statis dan tidak melakukan rendering PHP.
-
-Pengujian dilakukan melalui hostname dan path masing-masing.
-
-**Bukti:**
-
-> [Screenshot konfigurasi Penny /eternal]
-> [Screenshot konfigurasi Abbey /orion]
-> [Screenshot hasil akses browser]
-
----
-
-# 16. Stress Test ApacheBench
-
-Pengujian benchmark dilakukan menggunakan ApacheBench dari salah satu client, misalnya Alpha.
-
-Parameter yang digunakan:
-
-```text
-Requests     : 250
-Concurrency  : 10
-```
-
-Pengujian dilakukan pada:
-
-```text
-www.K-51.com
-static.K-51.com
-```
-
-Contoh perintah:
-
-```bash
-ab -n 250 -c 10 http://www.K-51.com/
-```
+Halaman
+/
 
 dan:
+/profil
 
-```bash
-ab -n 250 -c 10 http://static.K-51.com/
-```
+Rewrite
+URL:
+/profil
 
-Hasil benchmark dicatat untuk membandingkan performa kedua endpoint.
+mengarah ke aplikasi PHP tanpa menampilkan:
+/profil.php
 
-Parameter yang diamati antara lain:
+Verifikasi
+curl http://<hostname>/
+curl http://<hostname>/profil
 
-* Complete requests
-* Failed requests
-* Requests per second
-* Time per request
-* Transfer rate
+10. Reverse Proxy
+Soal 11 — Reverse Proxy
+Penny
+Client
+  |
+  v
+Penny
+Apache Reverse Proxy
+  |
+  +----> Obladi
+  |
+  +----> Desmond
 
-**Hasil:**
+Abbey
+Client
+  |
+  v
+Abbey
+Nginx Reverse Proxy
+  |
+  +----> Oblada
+  |
+  +----> Molly
 
-### [www.K-51.com](http://www.K-51.com)
+Header
+Forward:
+Host
+X-Real-IP
 
-> [Masukkan output ApacheBench]
+Tujuan
+Backend harus dapat mengetahui:
+hostname request
 
-### static.K-51.com
+dan:
+IP client asli
 
-> [Masukkan output ApacheBench]
+Verifikasi
+curl -v http://www.<xxxx>.com
+curl -v http://static.<xxxx>.com
 
----
+Lakukan beberapa request dan amati backend yang menerima request.
+Soal 12 — Basic Authentication
+Target
+penny
 
-# 17. TXT Record
+Path:
+/admin
 
-TXT record ditambahkan untuk seluruh client sayap kiri dan kanan:
+Credential
+Username:
+prabs
 
-```text
+Password:
+<ISI_PASSWORD_SESUAI_SOAL>
+
+Tanpa Credential
+curl -i http://penny.<xxxx>.com/admin
+
+Expected:
+401 Unauthorized
+
+Dengan Credential
+curl -u prabs:<PASSWORD> -i \
+http://penny.<xxxx>.com/admin
+
+Expected:
+200 OK
+
+Soal 13 — HTTP Redirect
+Penny
+IP/domain Penny:
+301
+ ↓
+www.<xxxx>.com
+
+Abbey
+IP/domain Abbey:
+302
+ ↓
+static.<xxxx>.com
+
+Verifikasi
+curl -I http://<IP-PENNY>
+
+Expected:
+HTTP/1.1 301
+Location: http://www.<xxxx>.com
+
+Kemudian:
+curl -I http://<IP-ABBEY>
+
+Expected:
+HTTP/1.1 302
+Location: http://static.<xxxx>.com
+
+Soal 14 — Client IP Logging
+Tujuan
+Backend harus mencatat IP client asli.
+Alur
+Client
+  |
+  | IP asli
+  v
+Proxy
+  |
+  | X-Real-IP
+  v
+Backend
+  |
+  v
+Access Log
+
+Verifikasi
+Lakukan request dari client:
+curl http://www.<xxxx>.com
+
+Kemudian cek log backend:
+tail -f <ACCESS-LOG>
+
+Pastikan IP yang muncul adalah:
+IP CLIENT
+
+bukan:
+IP PENNY
+
+atau:
+IP ABBEY
+
+Soal 15 — Path Proxy
+Penny
+Path:
+/eternal
+
+Directory:
+/var/www/eternal
+
+PHP:
+ENABLED
+
+Abbey
+Path:
+/orion
+
+Directory:
+/var/www/orion
+
+PHP:
+DISABLED
+
+Verifikasi
+curl http://penny.<xxxx>.com/eternal
+
+dan:
+curl http://abbey.<xxxx>.com/orion
+
+11. Testing
+Soal 16 — ApacheBench
+Parameter
+Requests      : 250
+Concurrency   : 10
+
+Target 1
+www.<xxxx>.com
+
+Contoh:
+ab -n 250 -c 10 http://www.<xxxx>.com/
+
+Target 2
+static.<xxxx>.com
+
+Contoh:
+ab -n 250 -c 10 http://static.<xxxx>.com/
+
+Hasil
+www
+Complete requests:
+Failed requests:
+Requests per second:
+Time per request:
+Transfer rate:
+
+static
+Complete requests:
+Failed requests:
+Requests per second:
+Time per request:
+Transfer rate:
+
+Dokumentasi
+  
+Soal 17 — TXT Record
+Target
 alpha
 beta
 gamma
 delta
 epsilon
-```
 
-Contoh:
+Contoh
+alpha.<xxxx>.com TXT "alpha"
 
-```text
-alpha.K-51.com.    IN TXT    "alpha"
-beta.K-51.com.     IN TXT    "beta"
-gamma.K-51.com.    IN TXT    "gamma"
-delta.K-51.com.    IN TXT    "delta"
-epsilon.K-51.com.  IN TXT    "epsilon"
-```
+Verifikasi
+dig TXT alpha.<xxxx>.com
+dig TXT beta.<xxxx>.com
+dig TXT gamma.<xxxx>.com
+dig TXT delta.<xxxx>.com
+dig TXT epsilon.<xxxx>.com
 
-Verifikasi dilakukan dengan:
+Soal 18 — DNS TTL
+Target
+abbey.<xxxx>.com
 
-```bash
-dig @10.89.5.10 alpha.K-51.com TXT
-dig @10.89.5.10 beta.K-51.com TXT
-dig @10.89.5.10 gamma.K-51.com TXT
-dig @10.89.5.10 delta.K-51.com TXT
-dig @10.89.5.10 epsilon.K-51.com TXT
-```
-
-Hasil query harus mengembalikan teks hostname masing-masing.
-
-**Bukti:**
-
-> [Screenshot hasil TXT record]
-
----
-
-# 18. Pengujian TTL dan DNS Cache
-
-A record `abbey.K-51.com` diubah menjadi alamat IP fiktif yang tetap memiliki format IPv4 valid.
-
-Setelah perubahan, serial SOA pada prab dinaikkan sehingga perubahan dapat ditransfer ke tedd.
-
-TTL record yang diuji ditetapkan sebesar:
-
-```text
+TTL
 15 detik
-```
 
-Pengujian dilakukan dalam tiga kondisi:
+Kondisi
+Fase 1 — Sebelum perubahan
+abbey
+ ↓
+IP LAMA
 
-### Fase 1 — Sebelum perubahan
+Fase 2 — Setelah perubahan tetapi TTL belum habis
+abbey
+ ↓
+CACHE
+ ↓
+IP LAMA
 
-DNS masih mengembalikan IP lama.
+Fase 3 — Setelah TTL habis
+abbey
+ ↓
+QUERY BARU
+ ↓
+IP FIKTIF BARU
 
-### Fase 2 — Setelah perubahan tetapi TTL belum habis
+Serial
+Setelah perubahan:
+SOA SERIAL
 
-Client masih mendapatkan IP lama karena record masih berada di cache.
+harus dinaikkan.
+Kemudian pastikan:
+prab serial == tedd serial
 
-### Fase 3 — Setelah TTL habis
+Catatan
+Setelah praktikum nomor 18 selesai, konfigurasi dikembalikan normal untuk kebutuhan nomor 20.
 
-DNS mengembalikan IP baru setelah cache expired.
-
-Hasil pengujian menunjukkan pengaruh TTL terhadap proses caching DNS.
-
-**Bukti:**
-
-> [Screenshot sebelum perubahan]
-> [Screenshot setelah perubahan < 15 detik]
-> [Screenshot setelah TTL habis]
-
----
-
-# 19. CNAME Outbound
-
-Dibuat CNAME:
-
-```text
-outbound.K-51.com
-```
-
-yang mengarah ke:
-
-```text
+Soal 19 — CNAME External
+Record
+outbound.<xxxx>.com
+        |
+        v
 http.badssl.com
-```
 
-Pengujian dilakukan menggunakan:
+Verifikasi DNS
+dig CNAME outbound.<xxxx>.com
 
-```bash
-curl http://outbound.K-51.com
-```
+Verifikasi HTTP
+curl http://outbound.<xxxx>.com
 
-Hasil output kemudian dibandingkan dengan konten dari endpoint tujuan.
+Output harus sesuai dengan konten tujuan yang ditentukan pada soal.
+12. Persistence
+Soal 20 — Autostart dan Persistence
+Tujuan
+Memastikan seluruh konfigurasi dan service tetap berjalan setelah restart.
+Sebelum Restart
+Tes:
+ip addr
+ip route
 
-Pengujian ini digunakan untuk memastikan resolusi CNAME dan akses menuju tujuan eksternal dapat berjalan.
+DNS:
+dig <xxxx>.com
 
-**Bukti:**
+Web:
+curl http://www.<xxxx>.com
 
-> [Screenshot DNS CNAME]
-> [Screenshot hasil curl]
+Proxy:
+curl http://static.<xxxx>.com
 
----
+Restart
+reboot
 
-# 20. Persistence dan Autostart
+Setelah Restart
+Periksa:
+ip addr
+ip route
 
-Setelah seluruh konfigurasi selesai, setiap service diperiksa agar tetap berjalan setelah node melakukan restart.
+Periksa service:
+rc-status
 
-Service yang diperiksa meliputi:
+atau command service yang sesuai dengan sistem.
+Kemudian ulangi pengujian:
+dig <xxxx>.com
+curl http://www.<xxxx>.com
+curl http://static.<xxxx>.com
 
-* BIND
-* Apache
-* Nginx
-* PHP-FPM
-* service jaringan
-* konfigurasi reverse proxy
-* konfigurasi DNS
+Checklist
+- [ ] IP tetap ada
+- [ ] Gateway tetap ada
+- [ ] Routing tetap ada
+- [ ] DNS tetap aktif
+- [ ] Apache tetap aktif
+- [ ] Nginx tetap aktif
+- [ ] PHP-FPM tetap aktif
+- [ ] Reverse proxy tetap bekerja
+- [ ] Konfigurasi tetap tersimpan
+13. Alur Keseluruhan
+Berikut alur keseluruhan praktikum:
+                    INTERNET
+                        |
+                       NAT
+                        |
+                    rootkit
+                        |
+              INTERNAL ROUTING
+                        |
+        +---------------+---------------+
+        |                               |
+       DNS                             CLIENT
+        |                               |
+   +----+----+                          |
+   |         |                          |
+  prab      tedd                        |
+ MASTER     SLAVE                        |
+   |         ^                           |
+   |         |                           |
+   +----ZONE-TRANSFER-------------------+
+                        |
+                        v
+                   DNS RESOLUTION
+                        |
+                        v
+                www.<xxxx>.com
+                        |
+                      CNAME
+                        |
+                        v
+                      Penny
+                        |
+                 Reverse Proxy
+                        |
+                +-------+-------+
+                |               |
+              Obladi         Desmond
+               STATIC          STATIC
 
-Konfigurasi nomor 18 dikembalikan ke kondisi normal sesuai instruksi praktikum.
+Untuk dynamic:
+Client
+  |
+  v
+DNS
+  |
+  v
+static/core hostname
+  |
+  v
+Abbey
+  |
+  v
+Reverse Proxy
+  |
+  +---------> Oblada
+  |
+  +---------> Molly
+               |
+               v
+            PHP-FPM
 
-Setelah restart, setiap service diverifikasi kembali menggunakan command yang sesuai.
+14. Konsep Penting yang Harus Dipahami
+IP Address
+Host → IP
 
-Contoh:
+Routing
+Menentukan jalur packet
 
-```bash
-systemctl status <service>
-```
+NAT
+Private IP → alamat WAN
 
-atau command pemeriksaan service yang tersedia pada image yang digunakan.
+DNS
+Hostname → IP
 
-Selain itu dilakukan pengujian ulang terhadap DNS dan web service untuk memastikan konfigurasi tetap berjalan setelah restart.
+Reverse DNS
+IP → Hostname
 
-**Bukti:**
+A Record
+Hostname → IPv4
 
-> [Screenshot service sebelum restart]
-> [Screenshot node setelah restart]
-> [Screenshot service setelah restart]
-> [Screenshot pengujian DNS setelah restart]
-> [Screenshot pengujian web setelah restart]
+CNAME
+Hostname → Hostname
 
----
+PTR
+IP → Hostname
 
-# 21. Hasil dan Pembahasan
+TXT
+Hostname → Text
 
-Berdasarkan konfigurasi yang dilakukan, The Mesh dibangun menggunakan beberapa komponen yang saling terhubung. Rootkit berfungsi sebagai router utama, sedangkan prab dan tedd berfungsi sebagai DNS server master dan slave.
+SOA
+Informasi authority dan versi zone
 
-DNS menjadi dasar bagi layanan lainnya karena hostname seperti `www.K-51.com`, `static.K-51.com`, `vault.K-51.com`, dan `core.K-51.com` digunakan untuk mengakses layanan.
+Zone Transfer
+Master → Slave
 
-Zone transfer memungkinkan tedd memiliki salinan zona dari prab sehingga DNS tetap dapat memberikan layanan apabila query diarahkan ke server kedua.
+Reverse Proxy
+Client → Proxy → Backend
 
-Setelah DNS berjalan, layanan web dapat dibangun di area vault dan core. Reverse proxy pada Penny dan Abbey kemudian menjadi gerbang bagi client sebelum request diteruskan menuju backend.
+PHP-FPM
+Nginx → PHP-FPM → PHP
 
-Selain layanan utama, praktikum juga menguji fitur DNS yang lebih lanjut seperti reverse DNS, TXT record, CNAME, TTL dan caching. Pada sisi web dilakukan pengujian authentication, redirect, forwarding client IP, path proxy, serta ApacheBench.
+Basic Authentication
+Request
+ ↓
+Credential
+ ↓
+Access / 401
 
-Dengan demikian, praktikum menggabungkan beberapa konsep jaringan menjadi satu infrastruktur yang saling terintegrasi.
+HTTP Redirect
+301 = permanent
+302 = temporary
 
----
+TTL
+Berapa lama DNS response dapat disimpan dalam cache
 
-# 22. Kesimpulan
+15. Persiapan Demo
+Hal yang Harus Bisa Dijelaskan
+Networking
+- [ ] Fungsi rootkit
+- [ ] Fungsi gateway
+- [ ] Fungsi routing
+- [ ] Fungsi NAT
+- [ ] Fungsi resolver
+DNS
+- [ ] A record
+- [ ] NS record
+- [ ] SOA
+- [ ] CNAME
+- [ ] PTR
+- [ ] TXT
+- [ ] Master dan slave
+- [ ] Zone transfer
+- [ ] Serial
+- [ ] TTL
+- [ ] Forwarder
+Web
+- [ ] Apache
+- [ ] Nginx
+- [ ] PHP-FPM
+- [ ] FastCGI
+- [ ] Autoindex
+- [ ] Rewrite
+Proxy
+- [ ] Reverse proxy
+- [ ] Backend
+- [ ] Load balancing
+- [ ] Host header
+- [ ] X-Real-IP
+- [ ] Access log
+HTTP
+- [ ] 200
+- [ ] 301
+- [ ] 302
+- [ ] 401
+Testing
+- [ ] curl
+- [ ] dig
+- [ ] nslookup
+- [ ] ApacheBench
+16. Pertanyaan yang Mungkin Ditanyakan Asisten
+Networking
+Q: Apa fungsi rootkit?
+A:
+rootkit merupakan router sentral dan gateway
+yang menghubungkan jaringan-jaringan internal.
 
-Praktikum Modul 2 memberikan implementasi langsung terhadap konsep komunikasi data dan jaringan komputer melalui pembangunan jaringan The Mesh. Konfigurasi dilakukan mulai dari layer jaringan, routing, NAT, DNS, hingga layanan aplikasi berbasis web.
+Q: Apa fungsi NAT?
+A:
+NAT melakukan translasi alamat sehingga host
+dengan private IP dapat berkomunikasi melalui WAN.
 
-DNS authoritative dan slave digunakan untuk menyediakan resolusi nama internal, sedangkan zone transfer memastikan sinkronisasi antara prab dan tedd. Selanjutnya, web server statis dan dinamis ditempatkan pada area vault dan core dan diakses melalui reverse proxy.
+Q: Apa fungsi default gateway?
+A:
+Default gateway merupakan next-hop yang digunakan
+host untuk mencapai jaringan di luar subnet lokal.
 
-Pengujian tambahan berupa reverse DNS, Basic Authentication, redirect, forwarding client IP, ApacheBench, TXT record, TTL caching, dan CNAME digunakan untuk memastikan berbagai fungsi jaringan dan aplikasi dapat bekerja sesuai rancangan.
+DNS
+Q: Apa perbedaan A dan CNAME?
+A:
+A     → hostname ke IPv4
+CNAME → hostname ke hostname
 
-Seluruh konfigurasi kemudian perlu dipastikan tetap berjalan setelah restart agar infrastruktur The Mesh dapat beroperasi secara konsisten.
+Q: Apa fungsi SOA serial?
+A:
+Serial digunakan sebagai penanda versi zone.
+Slave dapat mengetahui apakah zone master lebih baru.
 
----
+Q: Kenapa ada prab dan tedd?
+A:
+prab berfungsi sebagai master authoritative,
+sedangkan tedd sebagai slave/secondary.
 
-# 23. Dokumentasi
+Q: Apa itu zone transfer?
+A:
+Proses pemindahan/sinkronisasi informasi zone
+dari master ke slave.
 
-Seluruh hasil konfigurasi dan pengujian dilengkapi dengan screenshot sebagai bukti pengerjaan.
+Q: Apa perbedaan forward dan reverse DNS?
+A:
+Forward:
+hostname → IP
 
-Dokumentasi mencakup:
+Reverse:
+IP → hostname
 
-1. Konfigurasi IP.
-2. Konfigurasi routing dan NAT.
-3. Konfigurasi DNS master.
-4. Konfigurasi DNS slave.
-5. Hasil zone transfer.
-6. Konfigurasi record DNS.
-7. Hasil reverse DNS.
-8. Konfigurasi Apache.
-9. Konfigurasi Nginx.
-10. Konfigurasi PHP-FPM.
-11. Konfigurasi reverse proxy.
-12. Basic Authentication.
-13. Redirect.
-14. Access log.
-15. Proxy path.
-16. ApacheBench.
-17. TXT record.
-18. TTL dan DNS cache.
-19. CNAME dan curl.
-20. Persistence service.
+Web Server
+Q: Apa perbedaan Apache dan Nginx pada praktikum?
+A:
+Apache digunakan untuk web static dan reverse proxy Penny.
 
----
+Nginx digunakan untuk web dynamic dan reverse proxy Abbey.
 
-# 24. Daftar Bukti Pengujian
+Q: Apa fungsi PHP-FPM?
+A:
+PHP-FPM menjalankan aplikasi PHP yang diteruskan
+oleh Nginx melalui FastCGI.
 
-| No. | Pengujian         | Bukti                              |
-| --- | ----------------- | ---------------------------------- |
-| 1   | IP dan gateway    | Screenshot                         |
-| 2   | NAT               | Screenshot                         |
-| 3   | Routing           | Screenshot ping                    |
-| 4   | DNS authoritative | Screenshot dig                     |
-| 5   | Hostname          | Screenshot hostname                |
-| 6   | Zone transfer     | Screenshot SOA prab/tedd           |
-| 7   | Vault/Core/CNAME  | Screenshot dig                     |
-| 8   | Reverse DNS       | Screenshot dig -x                  |
-| 9   | Static web        | Screenshot browser                 |
-| 10  | Dynamic web       | Screenshot browser                 |
-| 11  | Reverse proxy     | Screenshot browser/log             |
-| 12  | Basic auth        | Screenshot authentication          |
-| 13  | Redirect          | Screenshot curl                    |
-| 14  | Client IP log     | Screenshot access log              |
-| 15  | Eternal/Orion     | Screenshot browser                 |
-| 16  | ApacheBench       | Screenshot output                  |
-| 17  | TXT record        | Screenshot dig TXT                 |
-| 18  | TTL/cache         | Screenshot tiga fase               |
-| 19  | CNAME/curl        | Screenshot curl                    |
-| 20  | Persistence       | Screenshot service setelah restart |
+Reverse Proxy
+Q: Apa itu reverse proxy?
+A:
+Reverse proxy merupakan server perantara yang menerima
+request client kemudian meneruskannya ke backend.
+
+Q: Kenapa menggunakan X-Real-IP?
+A:
+Untuk meneruskan informasi IP client asli ke backend,
+karena koneksi langsung backend berasal dari proxy.
+
+HTTP
+Q: Apa perbedaan 301 dan 302?
+A:
+301 = permanent redirect
+302 = temporary redirect
+
+Q: Apa arti 401?
+A:
+401 Unauthorized berarti request membutuhkan
+authentication yang valid.
+
+DNS Cache
+Q: Kenapa perubahan DNS tidak langsung terlihat?
+A:
+Karena resolver/client dapat masih memiliki
+jawaban lama di cache sampai TTL habis.
+
+17. Final Checklist
+Network
+- [ ] Semua node hidup
+- [ ] IP address benar
+- [ ] Gateway benar
+- [ ] Routing benar
+- [ ] NAT aktif
+- [ ] Internet dapat diakses
+DNS
+- [ ] prab aktif
+- [ ] tedd aktif
+- [ ] SOA benar
+- [ ] NS benar
+- [ ] A record benar
+- [ ] CNAME benar
+- [ ] PTR benar
+- [ ] TXT benar
+- [ ] Zone transfer berhasil
+- [ ] Serial sama
+- [ ] TTL nomor 18 berhasil diuji
+Web
+- [ ] Obladi aktif
+- [ ] Desmond aktif
+- [ ] Oblada aktif
+- [ ] Molly aktif
+- [ ] Apache aktif
+- [ ] Nginx aktif
+- [ ] PHP-FPM aktif
+- [ ] /arsip/ bekerja
+- [ ] /profil bekerja
+Reverse Proxy
+- [ ] Penny aktif
+- [ ] Abbey aktif
+- [ ] Vault bekerja
+- [ ] Core bekerja
+- [ ] Host header diteruskan
+- [ ] X-Real-IP diteruskan
+- [ ] Access log menunjukkan IP client
+Security / HTTP
+- [ ] /admin membutuhkan authentication
+- [ ] Credential valid dapat masuk
+- [ ] Penny menggunakan 301
+- [ ] Abbey menggunakan 302
+Testing
+- [ ] ApacheBench 250 requests
+- [ ] Concurrency 10
+- [ ] www tested
+- [ ] static tested
+- [ ] TXT tested
+- [ ] External CNAME tested
+Persistence
+- [ ] Reboot berhasil
+- [ ] Network kembali aktif
+- [ ] DNS kembali aktif
+- [ ] Web server kembali aktif
+- [ ] Reverse proxy kembali aktif
+- [ ] Konfigurasi tetap tersimpan
+18. Kesimpulan
+Praktikum ini membangun jaringan secara bertahap mulai dari:
+IP Address
+    ↓
+Routing
+    ↓
+NAT
+    ↓
+DNS
+    ↓
+Zone Transfer
+    ↓
+Web Server
+    ↓
+Reverse Proxy
+    ↓
+Authentication
+    ↓
+Redirect
+    ↓
+Logging
+    ↓
+Benchmark
+    ↓
+DNS Cache
+    ↓
+Persistence
+
+Setiap bagian saling berhubungan.
+DNS menyediakan resolusi nama yang digunakan untuk mengakses web server. Reverse proxy menjadi gerbang menuju backend. Header Host dan X-Real-IP memungkinkan backend mengetahui konteks request dan alamat client. DNS TTL kemudian digunakan untuk mengamati perilaku caching. Pada tahap akhir, seluruh konfigurasi diuji kembali setelah restart untuk memastikan persistence.
+19. Dokumentasi
+Screenshots
+Seluruh bukti praktikum disimpan di:
+screenshots/
+
+Script
+Seluruh script disimpan di:
+scripts/
+
+Configuration
+Seluruh konfigurasi disimpan di:
+configs/
+
+20. Author
+Kelompok : K-XX
+Praktikan:
+1. Nama 1
+2. Nama 2
+3. Nama 3
+4. Nama 4
+
+Praktikum:
+Komunikasi Data & Jaringan Komputer 2026
+
+Modul:
+Modul 2 — Shadow Net Operation
+
+End
+Dokumentasi ini dibuat sebagai dokumentasi konfigurasi, pengujian, troubleshooting, dan bahan persiapan demo praktikum.
+
+
+Template di atas sengaja dibuat sebagai **README dokumentasi sekaligus bahan belajar demo**, bukan cuma laporan ha
