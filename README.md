@@ -1,5 +1,3 @@
-Jadi README praktikum kamu jangan dibuat seperti tutorial generik, tetapi seperti laporan pengerjaan praktikum. Contohnya pola yang dipakai repository Jarkom lain juga adalah ## Nomor 1, ## Nomor 2, kemudian ## Jawaban, konfigurasi, testing, dan seterusnya. GitHub
-Untuk kasusmu, struktur yang tepat adalah seperti ini:
 # Laporan Praktikum Jaringan Komputer 2026
 
 ## Kelompok K-51
