@@ -91,6 +91,8 @@ echo "SETUP HOST SELESAI"
 
 ![Nama Gambar](path/ke/gambar.png)
 
+---
+
 ## Soal 2: Konfigurasi NAT & IP Forwarding di Router (rootkit)
 
 Konfigurasi NAT menggunakan iptables agar seluruh subnet internal dapat terhubung ke jaringan publik melalui interface eth0.
@@ -107,4 +109,121 @@ iptables -A FORWARD -i eth0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
 iptables -C FORWARD -o eth0 -j ACCEPT 2>/dev/null || \
 iptables -A FORWARD -o eth0 -j ACCEPT
+```
+
+---
+
+## Soal 3: Routing Internal & Resolver Awal
+
+Setiap host non-router diarahkan untuk menambahkan resolver awal 192.168.122.1 di /etc/resolv.conf untuk kemudahan pengunduhan paket.
+
+Pengujian koneksi internet dan DNS resolver awal:
+```bash
+cat /etc/resolv.conf
+ping -c 3 google.com
+```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 4: Membangun DNS Authoritative Master (prab) dan Slave (tedd)
+
+Di Node prab (Master DNS)
+/etc/bind/named.conf.options:
+```bash
+options {
+    directory "/var/cache/bind";
+    recursion yes;
+    forwarders {
+        192.168.122.1;
+    };
+    allow-query { any; };
+    dnssec-validation no;
+};
+```
+/etc/bind/named.conf.local:
+```bash
+zone "K-51.com" {
+    type master;
+    file "/etc/bind/db.K-51.com";
+    notify yes;
+    also-notify {
+        10.89.5.11;
+    };
+    allow-transfer {
+        10.89.5.11;
+    };
+};
+```
+File Zone /etc/bind/db.K-51.com:
+```bash
+$TTL 86400
+@   IN  SOA prab.K-51.com. admin.K-51.com. (
+        2026092901
+        3600
+        1800
+        604800
+        86400
+)
+
+    IN  NS  prab.K-51.com.
+    IN  NS  tedd.K-51.com.
+
+@       IN  A   10.89.4.10
+prab    IN  A   10.89.5.10
+tedd    IN  A   10.89.5.11
+```
+Penataan Ulang Resolver di Semua Non-Router
+Setelah DNS berjalan, perbarui /etc/resolv.conf pada seluruh host non-router menjadi:
+```bash
+nameserver 10.89.5.10
+nameserver 10.89.5.11
+nameserver 192.168.122.1
+```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 5: Konfigurasi Hostname dan A Record Setiap Node
+Setiap node di-set hostname-nya menggunakan script berikut:
+```bash
+echo "nama_node" > /etc/hostname && echo "127.0.1.1 nama_node" >> /etc/hosts && hostname -F /etc/hostname
+```
+
+Menambahkan A Record di DNS Master (prab):
+
+ - alpha.K-51.com → 10.89.1.10
+
+ - beta.K-51.com → 10.89.1.11
+
+ - gamma.K-51.com → 10.89.1.12
+
+ - delta.K-51.com → 10.89.2.10
+
+ - epsilon.K-51.com → 10.89.2.11
+
+ - abbey.K-51.com → 10.89.3.10
+
+ - penny.K-51.com → 10.89.4.10
+
+ - obladi.K-51.com → 10.89.5.12
+
+ - desmond.K-51.com → 10.89.5.13
+
+ - oblada.K-51.com → 10.89.5.14
+
+ - molly.K-51.com → 10.89.5.1
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 6: Verifikasi Zone Transfer pada Slave (tedd)
+Pengujian dilakukan untuk memastikan tedd menerima salinan zone dari prab dengan nomor serial SOA yang sama:
+```bash
+dig @10.89.5.10 K-51.com SOA +noall +answer
+dig @10.89.5.11 K-51.com SOA +noall +answer
+dig @10.89.5.11 penny.K-51
 ```
