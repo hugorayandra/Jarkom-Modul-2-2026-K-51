@@ -44,6 +44,8 @@ Berdasarkan ketentuan soal dan topologi GNS3:
   * `oblada` (Core Dynamic 1): 10.89.5.14 (Gateway: 10.89.5.1)
   * `molly` (Core Dynamic 2): 10.89.5.15 (Gateway: 10.89.5.1)
 
+![Nama Gambar](path/ke/gambar.png)
+
 ---
 
 ## Soal 1: Penetapan Alamat IP dan Default Gateway
@@ -87,7 +89,10 @@ echo "nameserver 192.168.122.1" > /etc/resolv.conf
 echo "SETUP HOST SELESAI"
 ```
 
+![Nama Gambar](path/ke/gambar.png)
+
 ## Soal 2: Konfigurasi NAT & IP Forwarding di Router (rootkit)
+
 Konfigurasi NAT menggunakan iptables agar seluruh subnet internal dapat terhubung ke jaringan publik melalui interface eth0.
 ```bash
 # Aktifkan IPv4 forwarding
