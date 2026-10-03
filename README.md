@@ -227,3 +227,108 @@ dig @10.89.5.10 K-51.com SOA +noall +answer
 dig @10.89.5.11 K-51.com SOA +noall +answer
 dig @10.89.5.11 penny.K-51
 ```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 7: Konfigurasi Domain Vault, Core, dan CNAME
+Pada prab di file /etc/bind/db.K-51.com, tambahkan record berikut dan naikkan serial number:
+```bash
+DNS Zone file
+vault       IN A       10.89.5.12
+vault       IN A       10.89.5.13
+
+core        IN A       10.89.5.14
+core        IN A       10.89.5.15
+
+www         IN CNAME   penny.K-51.com.
+static      IN CNAME   abbey.K-51.com.
+```
+Jalankan perintah rndc reload untuk menerapkan perubahan.
+
+Pengujian dari Client (alpha):
+```bash
+host vault.K-51.com
+host core.K-51.com
+host -t CNAME www.K-51.com
+host -t CNAME static.K-51.com
+```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 8: Konfigurasi Reverse DNS Pointer (PTR Record)
+Tambahan pada /etc/bind/named.conf.local di prab:
+```bash
+zone "3.89.10.in-addr.arpa" { 
+    type master; 
+    file "/etc/bind/jarkom/3.89.10.in-addr.arpa"; 
+    notify yes; 
+    also-notify { 10.89.5.11; }; 
+    allow-transfer { 10.89.5.11; }; 
+};
+
+zone "4.89.10.in-addr.arpa" { 
+    type master; 
+    file "/etc/bind/jarkom/4.89.10.in-addr.arpa"; 
+    notify yes; 
+    also-notify { 10.89.5.11; }; 
+    allow-transfer { 10.89.5.11; }; 
+};
+
+zone "5.89.10.in-addr.arpa" { 
+    type master; 
+    file "/etc/bind/jarkom/5.89.10.in-addr.arpa"; 
+    notify yes; 
+    also-notify { 10.89.5.11; }; 
+    allow-transfer { 10.89.5.11; }; 
+};
+```
+
+Isian File Zone Reverse Pointer:
+- /etc/bind/jarkom/3.89.10.in-addr.arpa:
+  10 IN PTR abbey.K-51.com.
+
+- /etc/bind/jarkom/4.89.10.in-addr.arpa:
+  10 IN PTR penny.K-51.com.
+
+- /etc/bind/jarkom/5.89.10.in-addr.arpa:
+  12 IN PTR vault.K-51.com.
+  13 IN PTR vault.K-51.com.
+  14 IN PTR core.K-51.com.
+  15 IN PTR core.K-51.com.
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 9: Web Server Statis Area Vault (obladi & desmond)
+Membuat direktori /arsip/ dan mengaktifkan fitur autoindex pada Apache di node obladi dan desmond.
+
+Pengujian:
+```bash
+curl -i http://vault.K-51.com/arsip/
+```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
+## Soal 10: Web Server Dinamis Area Core (oblada & molly)
+Menjalankan PHP-FPM dan Nginx untuk memuat halaman beranda serta profil dengan aturan URL Rewrite (URL bersih tanpa .php).
+
+Pengujian:
+```bash
+php -v
+ls -lah /run/php/
+ls -l /var/www/core/
+curl -i http://10.89.5.14/
+curl -i http://10.89.5.15/
+```
+
+![Nama Gambar](path/ke/gambar.png)
+
+---
+
