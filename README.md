@@ -328,6 +328,366 @@ curl -i http://10.89.5.14/
 curl -i http://10.89.5.15/
 ```
 
+## 11. Konfigurasi Reverse Proxy
+
+### 11.1 Reverse Proxy Penny
+
+Penny menggunakan Apache sebagai reverse proxy.
+
+Module yang dibutuhkan diaktifkan:
+```bash
+a2enmod proxy
+a2enmod proxy_http
+a2enmod headers
+```
+Konfigurasi kemudian diperiksa menggunakan:
+```
+apache2ctl configtest
+```
+Hasil yang diharapkan:
+```
+Syntax OK
+```
+### 11.2 Reverse Proxy Abbey
+
+Abbey menggunakan Nginx sebagai reverse proxy.
+
+Konfigurasi diperiksa menggunakan:
+```
+nginx -t
+```
+Hasil yang diharapkan:
+```
+syntax is ok
+test is successful
+```
+## 12. Konfigurasi Basic Authentication
+
+Authentication digunakan untuk membatasi akses menuju endpoint tertentu.
+
+File password dibuat menggunakan:
+```
+htpasswd -c /etc/apache2/.htpasswd <username>
+```
+Konfigurasi Apache menggunakan:
+```
+AuthType Basic
+AuthName "Restricted Area"
+AuthUserFile /etc/apache2/.htpasswd
+Require valid-user
+```
+Kemudian dilakukan pengujian tanpa credential:
+```
+curl -i http://penny.K-51.com/admin
+```
+Response yang diharapkan:
+```
+401 Unauthorized
+```
+Setelah itu dilakukan pengujian menggunakan credential:
+```
+curl -i -u <username>:<password> http://penny.K-51.com/admin
+```
+## 13. Konfigurasi Redirect
+
+Redirect diuji menggunakan opsi -I pada curl agar hanya header HTTP yang ditampilkan.
+```
+curl -I http://penny.K-51.com/
+
+dan:
+
+curl -I http://abbey.K-51.com/
+```
+Pada hasil pengujian diperiksa:
+
+HTTP/1.1 301
+
+atau:
+
+HTTP/1.1 302
+
+serta header:
+
+Location:
+
+Header tersebut menunjukkan tujuan redirect yang telah dikonfigurasi.
+
+## 14. Konfigurasi Real Client IP
+
+Pada reverse proxy dilakukan konfigurasi agar alamat IP client asli dapat diteruskan menuju backend.
+
+Contoh konfigurasi Nginx:
+```
+set_real_ip_from 10.89.3.10;
+real_ip_header X-Real-IP;
+real_ip_recursive on;
+```
+Kemudian log Nginx diamati:
+```
+tail -f /var/log/nginx/access.log
+```
+Dari client dilakukan request:
+```
+curl http://static.K-51.com/
+```
+Log kemudian diperiksa untuk memastikan informasi alamat client diterima oleh server.
+
+## 15. Konfigurasi Eternal pada Penny
+
+Directory Eternal dibuat pada Penny:
+```
+mkdir -p /var/www/eternal
+```
+Kemudian dibuat file PHP:
+```
+/var/www/eternal/index.php
+```
+Backend PHP dijalankan pada port:
+```
+127.0.0.1:8081
+```
+Port diperiksa menggunakan:
+```
+ss -lntp | grep ':8081'
+```
+Pada proses pengerjaan sempat ditemukan error:
+
+Address already in use
+
+Error tersebut terjadi karena port 8081 sudah digunakan oleh proses PHP yang telah berjalan.
+
+Untuk memastikan proses yang menggunakan port tersebut:
+```
+ss -lntp | grep ':8081'
+```
+Jika proses PHP sudah terlihat, backend tidak perlu dijalankan kembali.
+
+Konfigurasi Apache kemudian menggunakan:
+```
+ProxyPass        /eternal/ http://127.0.0.1:8081/
+ProxyPassReverse /eternal/ http://127.0.0.1:8081/
+```
+Validasi Apache:
+```
+apache2ctl configtest
+```
+Kemudian dilakukan pengujian:
+```
+curl -i http://penny.K-51.com/eternal/
+```
+Hasil pengujian yang diperoleh:
+```
+HTTP/1.1 200 OK
+X-Powered-By: PHP/8.4.26
+```
+Response juga menampilkan:
+
+ETERNAL - PENNY
+PHP STATUS: AKTIF
+Hostname: penny
+
+Hasil tersebut menunjukkan bahwa request berhasil melewati reverse proxy Penny dan PHP berhasil dirender.
+
+## 16. Konfigurasi Orion pada Abbey
+
+Directory Orion dibuat sebagai static content:
+```
+/var/www/orion/
+```
+Kemudian dibuat:
+
+index.html
+
+Konfigurasi Nginx digunakan untuk melayani endpoint:
+
+/orion/
+
+Konfigurasi diuji menggunakan:
+```
+nginx -t
+```
+Setelah konfigurasi valid, Nginx direload.
+
+Pengujian dilakukan:
+```
+curl -i http://abbey.K-51.com/orion/
+```
+Endpoint Orion harus menghasilkan static content dan tidak menjalankan PHP.
+
+## 17. Pengujian ApacheBench
+
+Pengujian performa dilakukan dari Alpha menggunakan ApacheBench.
+
+Untuk domain www:
+```
+ab -n 250 -c 10 http://www.K-51.com/ > /root/ab_www.txt
+```
+Untuk domain static:
+```
+ab -n 250 -c 10 http://static.K-51.com/ > /root/ab_static.txt
+```
+Hasil kemudian diperiksa:
+```
+grep -E \
+"Complete requests|Failed requests|Requests per second|Time per request|Transfer rate" \
+/root/ab_static.txt
+```
+Salah satu hasil pengujian yang diperoleh:
+```
+Complete requests:      250
+Failed requests:        124
+Requests per second:    1699.99 [#/sec]
+Time per request:       5.882 [ms]
+Transfer rate:          244.86 [Kbytes/sec]
+```
+Pada bagian failed requests ditemukan:
+```
+Connect: 0
+Receive: 0
+Length: 124
+Exceptions: 0
+```
+Nilai tersebut menunjukkan bahwa kegagalan yang terdeteksi ApacheBench berada pada perbedaan panjang response, bukan kegagalan koneksi atau exception.
+
+18. Konfigurasi TXT Record
+
+TXT record ditambahkan ke DNS zone.
+
+Record yang dibuat:
+```
+alpha       IN TXT "alpha"
+beta        IN TXT "beta"
+gamma       IN TXT "gamma"
+delta       IN TXT "delta"
+epsilon     IN TXT "epsilon"
+```
+Setelah penambahan record dilakukan validasi:
+```
+named-checkzone K-51.com /etc/bind/db.K-51.com
+```
+Kemudian dilakukan query:
+```
+dig alpha.K-51.com TXT +noall +answer
+dig beta.K-51.com TXT +noall +answer
+dig gamma.K-51.com TXT +noall +answer
+dig delta.K-51.com TXT +noall +answer
+dig epsilon.K-51.com TXT +noall +answer
+```
+Hasil query digunakan sebagai bukti bahwa TXT record berhasil dibuat dan dapat di-resolve.
+
+19. Pengujian TTL 15 Detik
+
+Sebelum melakukan perubahan TTL, file zone dibuat backup:
+```
+cp /etc/bind/db.K-51.com \
+/etc/bind/db.K-51.com.bak-nomor18
+```
+TTL record kemudian diatur menjadi:
+
+15
+
+Pengujian dilakukan dalam tiga fase.
+
+Fase 1
+
+Record diperiksa sebelum perubahan:
+```
+dig abbey.K-51.com A
+```
+Fase 2
+
+Record diubah dan segera dilakukan query kembali.
+
+Tahap ini digunakan untuk melihat kondisi cache sebelum TTL habis.
+
+Fase 3
+
+Setelah menunggu TTL:
+
+sleep 16
+
+Kemudian query kembali:
+```
+dig abbey.K-51.com A
+```
+Waktu 16 detik digunakan sebagai waktu tunggu sedikit lebih lama dari TTL 15 detik sehingga cache diharapkan sudah expired.
+
+Setelah pengujian selesai, konfigurasi DNS dikembalikan ke kondisi normal.
+
+20. Konfigurasi CNAME Outbound
+
+Record berikut ditambahkan:
+
+outbound IN CNAME http.badssl.com.
+
+Konfigurasi divalidasi:
+
+named-checkzone K-51.com /etc/bind/db.K-51.com
+
+Hasil:
+
+OK
+
+Kemudian dilakukan verifikasi dari Alpha:
+
+dig outbound.K-51.com CNAME +noall +answer
+
+Hasil yang diperoleh:
+
+outbound.K-51.com. 86400 IN CNAME http.badssl.com.
+
+Setelah DNS berhasil di-resolve, dilakukan pengujian HTTP:
+
+curl -i http://outbound.K-51.com
+
+Hasil pengujian mendapatkan:
+
+HTTP/1.1 200 OK
+
+Hal ini menunjukkan bahwa hostname outbound.K-51.com berhasil di-resolve sebagai CNAME dan request HTTP mendapatkan response dari tujuan tersebut.
+
+21. Final Verification
+
+Setelah seluruh konfigurasi selesai, dilakukan pemeriksaan akhir.
+
+DNS Master
+
+named-checkzone K-51.com /etc/bind/db.K-51.com
+
+DNS Slave
+
+dig @10.89.5.11 K-51.com SOA
+
+Apache
+
+apache2ctl configtest
+
+Nginx
+
+nginx -t
+
+PHP-FPM
+
+ls -lah /run/php/
+
+DNS Resolution
+
+getent hosts www.K-51.com
+getent hosts static.K-51.com
+getent hosts penny.K-51.com
+getent hosts abbey.K-51.com
+getent hosts outbound.K-51.com
+
+Web Testing
+
+curl -I http://www.K-51.com/
+curl -I http://static.K-51.com/
+curl -i http://penny.K-51.com/eternal/
+curl -i http://abbey.K-51.com/orion/
+curl -i http://outbound.K-51.com/
+
+Seluruh hasil pengujian tersebut digunakan sebagai verifikasi akhir bahwa konfigurasi DNS, re
+
 ![Nama Gambar](path/ke/gambar.png)
 
 ---
