@@ -44,7 +44,6 @@ Berdasarkan ketentuan soal dan topologi GNS3:
   * `oblada` (Core Dynamic 1): 10.89.5.14 (Gateway: 10.89.5.1)
   * `molly` (Core Dynamic 2): 10.89.5.15 (Gateway: 10.89.5.1)
 
-![Nama Gambar](path/ke/gambar.png)
 
 ---
 
@@ -89,10 +88,6 @@ echo "nameserver 192.168.122.1" > /etc/resolv.conf
 echo "SETUP HOST SELESAI"
 ```
 
-![Nama Gambar](path/ke/gambar.png)
-
----
-
 ## Soal 2: Konfigurasi NAT & IP Forwarding di Router (rootkit)
 
 Konfigurasi NAT menggunakan iptables agar seluruh subnet internal dapat terhubung ke jaringan publik melalui interface eth0.
@@ -122,11 +117,6 @@ Pengujian koneksi internet dan DNS resolver awal:
 cat /etc/resolv.conf
 ping -c 3 google.com
 ```
-
-![Nama Gambar](path/ke/gambar.png)
-
----
-
 ## Soal 4: Membangun DNS Authoritative Master (prab) dan Slave (tedd)
 
 Di Node prab (Master DNS)
@@ -182,10 +172,6 @@ nameserver 10.89.5.11
 nameserver 192.168.122.1
 ```
 
-![Nama Gambar](path/ke/gambar.png)
-
----
-
 ## Soal 5: Konfigurasi Hostname dan A Record Setiap Node
 Setiap node di-set hostname-nya menggunakan script berikut:
 ```bash
@@ -216,8 +202,6 @@ Menambahkan A Record di DNS Master (prab):
 
  - molly.K-51.com → 10.89.5.1
 
-![Nama Gambar](path/ke/gambar.png)
-
 ---
 
 ## Soal 6: Verifikasi Zone Transfer pada Slave (tedd)
@@ -227,10 +211,6 @@ dig @10.89.5.10 K-51.com SOA +noall +answer
 dig @10.89.5.11 K-51.com SOA +noall +answer
 dig @10.89.5.11 penny.K-51
 ```
-
-![Nama Gambar](path/ke/gambar.png)
-
----
 
 ## Soal 7: Konfigurasi Domain Vault, Core, dan CNAME
 Pada prab di file /etc/bind/db.K-51.com, tambahkan record berikut dan naikkan serial number:
@@ -254,10 +234,6 @@ host core.K-51.com
 host -t CNAME www.K-51.com
 host -t CNAME static.K-51.com
 ```
-
-![Nama Gambar](path/ke/gambar.png)
-
----
 
 ## Soal 8: Konfigurasi Reverse DNS Pointer (PTR Record)
 Tambahan pada /etc/bind/named.conf.local di prab:
@@ -300,8 +276,6 @@ Isian File Zone Reverse Pointer:
   14 IN PTR core.K-51.com.
   15 IN PTR core.K-51.com.
 
-![Nama Gambar](path/ke/gambar.png)
-
 ---
 
 ## Soal 9: Web Server Statis Area Vault (obladi & desmond)
@@ -311,11 +285,6 @@ Pengujian:
 ```bash
 curl -i http://vault.K-51.com/arsip/
 ```
-
-![Nama Gambar](path/ke/gambar.png)
-
----
-
 ## Soal 10: Web Server Dinamis Area Core (oblada & molly)
 Menjalankan PHP-FPM dan Nginx untuk memuat halaman beranda serta profil dengan aturan URL Rewrite (URL bersih tanpa .php).
 
@@ -614,48 +583,48 @@ Waktu 16 detik digunakan sebagai waktu tunggu sedikit lebih lama dari TTL 15 det
 
 Setelah pengujian selesai, konfigurasi DNS dikembalikan ke kondisi normal.
 
-20. Konfigurasi CNAME Outbound
+## 20. Konfigurasi CNAME Outbound
 
 Record berikut ditambahkan:
-
+```
 outbound IN CNAME http.badssl.com.
-
+```
 Konfigurasi divalidasi:
-
+```
 named-checkzone K-51.com /etc/bind/db.K-51.com
-
+```
 Hasil:
 
 OK
 
 Kemudian dilakukan verifikasi dari Alpha:
-
+```
 dig outbound.K-51.com CNAME +noall +answer
-
+```
 Hasil yang diperoleh:
-
+```
 outbound.K-51.com. 86400 IN CNAME http.badssl.com.
-
+```
 Setelah DNS berhasil di-resolve, dilakukan pengujian HTTP:
-
+```
 curl -i http://outbound.K-51.com
-
+```
 Hasil pengujian mendapatkan:
-
+```
 HTTP/1.1 200 OK
-
+```
 Hal ini menunjukkan bahwa hostname outbound.K-51.com berhasil di-resolve sebagai CNAME dan request HTTP mendapatkan response dari tujuan tersebut.
 
-21. Final Verification
+## 21. Final Verification
 
 Setelah seluruh konfigurasi selesai, dilakukan pemeriksaan akhir.
 
 DNS Master
-
+```
 named-checkzone K-51.com /etc/bind/db.K-51.com
-
+```
 DNS Slave
-
+```
 dig @10.89.5.11 K-51.com SOA
 
 Apache
@@ -685,10 +654,9 @@ curl -I http://static.K-51.com/
 curl -i http://penny.K-51.com/eternal/
 curl -i http://abbey.K-51.com/orion/
 curl -i http://outbound.K-51.com/
-
+```
 Seluruh hasil pengujian tersebut digunakan sebagai verifikasi akhir bahwa konfigurasi DNS, re
 
-![Nama Gambar](path/ke/gambar.png)
 
 ---
 
